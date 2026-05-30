@@ -2,9 +2,9 @@
 import re
 import tkinter as tk
 from tkinter import messagebox
-import app
-import Servicios
-from Servicios import (
+import main 
+
+from servicios import (
     validar_credenciales,
     generar_token,
     guardar_token,
@@ -110,7 +110,7 @@ class App(tk.Tk):
                 self.mostrar_error("Usuario o clave incorrectos.")
                 return
 
-            token = app.generar_token()
+            token = main.generar_token()
             guardar_token(usuario["id_usuario"], token, "LOGIN_2FA", minutos=5)
 
             enviar_email(

@@ -25,9 +25,7 @@ Ejemplo en Windows PowerShell:
 Si no configura SMTP, el programa mostrará el token en consola.
 """
 
-import os
-import re
-import UI
+import ui
 
 # Si prefiere usuario SQL Server, comente el CONNECTION_STRING anterior y use esto:
 # DB_USER = os.getenv("DB_USER", "sa")
@@ -45,5 +43,5 @@ import UI
 
 
 if __name__ == "__main__":
-    app = UI.App()
-    app.mainloop()
+    App = ui.App()
+    App.mainloop()
