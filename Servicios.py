@@ -1,9 +1,35 @@
 import hashlib
 import secrets
 import smtplib
-
+import os
+import ssl
+import pyodbc
 from email.message import EmailMessage
 from datetime import datetime, timedelta
+
+
+
+
+###
+#CONFIG 
+# ==========================================================
+# CONFIGURACIÓN
+# ==========================================================
+
+DB_SERVER = os.getenv("DB_SERVER", "localhost")
+DB_NAME = os.getenv("DB_NAME", "CMSoftwareDemo")
+DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
+
+# Si usa autenticación integrada de Windows:
+CONNECTION_STRING = (
+    f"DRIVER={{{DB_DRIVER}}};"
+    f"SERVER={DB_SERVER};"
+    f"DATABASE={DB_NAME};"
+    "Trusted_Connection=yes;"
+    "TrustServerCertificate=yes;"
+)
+
+
 
 # ==========================================================
 # ACCESO A DATOS

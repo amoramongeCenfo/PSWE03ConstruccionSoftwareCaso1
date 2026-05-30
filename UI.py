@@ -1,24 +1,56 @@
 
+import re
 import tkinter as tk
 from tkinter import messagebox
 import app
-from app import (
-    validar_login_form,
+import Servicios
+from Servicios import (
     validar_credenciales,
     generar_token,
     guardar_token,
     enviar_email,
     validar_token,
-    email_valido,
     buscar_usuario_por_email,
-    clave_valida,
     actualizar_clave
 )
-
 # ==========================================================
 # INTERFAZ TKINTER
 # ==========================================================
+# ==========================================================
+# VALIDACIONES
+# ==========================================================
 
+def email_valido(email):
+    patron = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+    return re.match(patron, email) is not None
+
+
+def clave_valida(clave):
+    """
+    Regla didáctica:
+    - No vacía
+    - Solo letras, números y el caracter especial #
+    """
+    if not clave:
+        return False
+    return re.match(r"^[A-Za-z0-9#]+$", clave) is not None
+
+
+def validar_login_form(email, clave):
+    if not email.strip():
+        return False, "El email es obligatorio."
+    if not clave.strip():
+        return False, "La clave es obligatoria."
+    if not email_valido(email):
+        return False, "El formato del email no es válido."
+    if not clave_valida(clave):
+        return False, "La clave solo puede contener letras, números y el caracter especial #."
+    return True, ""
+
+
+
+## ==========================================================
+## APLICACIÓN TKINTER       
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
