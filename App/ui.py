@@ -2,7 +2,6 @@
 import re
 import tkinter as tk
 from tkinter import messagebox
-import main 
 
 from servicios import (
     validar_credenciales,
@@ -101,16 +100,16 @@ class App(tk.Tk):
                 return
 
             try:
-                usuario = validar_credenciales(email, clave)
+                usuario, error = validar_credenciales(email, clave)
             except Exception as ex:
                 self.mostrar_error(f"Error conectando con la base de datos: {ex}")
                 return
 
             if usuario is None:
-                self.mostrar_error("Usuario o clave incorrectos.")
+                self.mostrar_error(error)
                 return
 
-            token = main.generar_token()
+            token = generar_token()
             guardar_token(usuario["id_usuario"], token, "LOGIN_2FA", minutos=5)
 
             enviar_email(

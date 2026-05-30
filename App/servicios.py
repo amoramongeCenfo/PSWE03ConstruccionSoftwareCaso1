@@ -1,150 +1,68 @@
-import hashlib
 import secrets
 import smtplib
 import os
 import ssl
-import pyodbc
 from email.message import EmailMessage
-from datetime import datetime, timedelta
 
-
-
-
-###
-#CONFIG 
-# ==========================================================
-# CONFIGURACIÓN
-# ==========================================================
-
-DB_SERVER = os.getenv("DB_SERVER", "localhost")
-DB_NAME = os.getenv("DB_NAME", "CMSoftwareDemo")
-DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
-
-# Si usa autenticación integrada de Windows:
-CONNECTION_STRING = (
-    f"DRIVER={{{DB_DRIVER}}};"
-    f"SERVER={DB_SERVER};"
-    f"DATABASE={DB_NAME};"
-    "Trusted_Connection=yes;"
-    "TrustServerCertificate=yes;"
+from datos import (
+    hash_clave,
+    buscar_usuario_por_email,
+    guardar_token,
+    validar_token,
+    actualizar_clave as _actualizar_clave_db,
+    incrementar_intentos,
+    resetear_intentos,
+    bloquear_usuario,
+    desbloquear_usuario,
 )
 
-
-
-# ==========================================================
-# ACCESO A DATOS
-# ==========================================================
-
-
-def obtener_conexion():
-    return pyodbc.connect(CONNECTION_STRING)
-
-
-def hash_clave(clave, salt):
-    return hashlib.sha256(salt + clave.encode("utf-8")).digest()
-
-
-def buscar_usuario_por_email(email):
-    sql = """
-    SELECT id_usuario, email, clave_hash, clave_salt, nombre, celular, activo
-    FROM dbo.Usuario
-    WHERE email = ?
-    """
-    with obtener_conexion() as cn:
-        cursor = cn.cursor()
-        cursor.execute(sql, email)
-        return cursor.fetchone()
+MAX_INTENTOS = 3
 
 
 def validar_credenciales(email, clave):
     usuario = buscar_usuario_por_email(email)
 
     if usuario is None:
-        return None
+        return None, "Usuario o clave incorrectos."
 
-    id_usuario, email_bd, clave_hash_bd, clave_salt, nombre, celular, activo = usuario
+    id_usuario, email_bd, clave_hash_bd, clave_salt, nombre, celular, activo, intentos_fallidos = usuario
 
     if not activo:
-        return None
+        return None, "La cuenta está bloqueada. Use recuperar clave para desbloquearla."
+
+    if intentos_fallidos >= MAX_INTENTOS:
+        bloquear_usuario(id_usuario)
+        return None, "La cuenta está bloqueada. Use recuperar clave para desbloquearla."
 
     clave_hash_calculada = hash_clave(clave, bytes(clave_salt))
 
-    if clave_hash_calculada == bytes(clave_hash_bd):
-        return {
-            "id_usuario": id_usuario,
-            "email": email_bd,
-            "nombre": nombre,
-            "celular": celular
-        }
+    if clave_hash_calculada != bytes(clave_hash_bd):
+        incrementar_intentos(id_usuario)
+        restantes = MAX_INTENTOS - (intentos_fallidos + 1)
+        if restantes <= 0:
+            bloquear_usuario(id_usuario)
+            return None, "La cuenta ha sido bloqueada por exceder el máximo de intentos. Use recuperar clave para desbloquearla."
+        return None, f"Usuario o clave incorrectos. Le quedan {restantes} intento(s)."
 
-    return None
-
-
-def guardar_token(id_usuario, token, tipo, minutos=5):
-    sql = """
-    INSERT INTO dbo.Token2FA(id_usuario, token, tipo, fecha_expira, usado)
-    VALUES (?, ?, ?, DATEADD(MINUTE, ?, SYSDATETIME()), 0)
-    """
-    with obtener_conexion() as cn:
-        cursor = cn.cursor()
-        cursor.execute(sql, id_usuario, token, tipo, minutos)
-        cn.commit()
+    resetear_intentos(id_usuario)
+    return {
+        "id_usuario": id_usuario,
+        "email": email_bd,
+        "nombre": nombre,
+        "celular": celular
+    }, None
 
 
-def validar_token(id_usuario, token, tipo):
-    sql_buscar = """
-    SELECT TOP 1 id_token
-    FROM dbo.Token2FA
-    WHERE id_usuario = ?
-      AND token = ?
-      AND tipo = ?
-      AND usado = 0
-      AND fecha_expira >= SYSDATETIME()
-    ORDER BY fecha_creacion DESC
-    """
-
-    sql_usar = """
-    UPDATE dbo.Token2FA
-    SET usado = 1
-    WHERE id_token = ?
-    """
-
-    with obtener_conexion() as cn:
-        cursor = cn.cursor()
-        cursor.execute(sql_buscar, id_usuario, token, tipo)
-        row = cursor.fetchone()
-
-        if row is None:
-            return False
-
-        id_token = row[0]
-        cursor.execute(sql_usar, id_token)
-        cn.commit()
-        return True
+def generar_token():
+    return str(secrets.randbelow(900000) + 100000)
 
 
 def actualizar_clave(id_usuario, nueva_clave):
     nuevo_salt = secrets.token_bytes(16)
     nuevo_hash = hash_clave(nueva_clave, nuevo_salt)
-
-    sql = """
-    UPDATE dbo.Usuario
-    SET clave_hash = ?, clave_salt = ?
-    WHERE id_usuario = ?
-    """
-
-    with obtener_conexion() as cn:
-        cursor = cn.cursor()
-        cursor.execute(sql, nuevo_hash, nuevo_salt, id_usuario)
-        cn.commit()
-
-
-# ==========================================================
-# EMAIL
-# ==========================================================
-
-def generar_token():
-    return str(secrets.randbelow(900000) + 100000)
+    _actualizar_clave_db(id_usuario, nuevo_hash, nuevo_salt)
+    resetear_intentos(id_usuario)
+    desbloquear_usuario(id_usuario)
 
 
 def enviar_email(destinatario, asunto, cuerpo):
@@ -174,6 +92,3 @@ def enviar_email(destinatario, asunto, cuerpo):
         server.starttls(context=contexto)
         server.login(smtp_user, smtp_password)
         server.send_message(mensaje)
-
-
-
