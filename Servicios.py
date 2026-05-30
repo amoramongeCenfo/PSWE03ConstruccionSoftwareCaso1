@@ -9,23 +9,7 @@ from datetime import datetime, timedelta
 # ACCESO A DATOS
 # ==========================================================
 
-C:\Users\eJaco\Downloads\Caso #1>git add origin https://github.com/amoramongeCenfo/PSWE03ConstruccionSoftwareCaso1.git
-fatal: pathspec 'origin' did not match any files
 
-C:\Users\eJaco\Downloads\Caso #1>git add .
-
-C:\Users\eJaco\Downloads\Caso #1>git status
-On branch main
-nothing to commit, working tree clean
-
-C:\Users\eJaco\Downloads\Caso #1>git push -u origin main
-fatal: 'origin' does not appear to be a git repository
-fatal: Could not read from remote repository.
-
-Please make sure you have the correct access rights
-and the repository exists.
-
-C:\Users\eJaco\Downloads\Caso #1>
 def obtener_conexion():
     return pyodbc.connect(CONNECTION_STRING)
 
